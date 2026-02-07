@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+webapp/frontend/node_modules/
+webapp/frontend/dist/
+.DS_Store
+*.log
+logs/
