@@ -1,0 +1,8 @@
+.git
+.gitattributes
+*.md
+.env
+knowledge_enriched_rag/databases/*.npy
+knowledge_enriched_rag/databases/*.json
+knowledge_enriched_rag/databases/*.pkl
+knowledge_enriched_rag/models/*.pt

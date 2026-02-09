@@ -64,11 +64,11 @@ git lfs pull
 Verify LFS files are downloaded (not pointer files):
 ```bash
 git lfs ls-files
-# Should show 5 files totaling ~1.7GB:
+# Should show LFS-tracked files:
+#   knowledge_embeddings_array.npy (165MB)
+#   knowledge_embeddings.pkl (168MB)
 #   memory_vectors.npy (83MB)
-#   scenes_vector.json (67MB)
 #   search_index_embeddings.npy (12MB)
-#   training_questions_train.json (58MB)
 #   roberta_200q_best_20251010_064944.pt (1.4GB)
 ```
 
@@ -112,8 +112,8 @@ Open **http://localhost** in your browser.
 
 | Service | Base Image | Port | GPU |
 |---------|-----------|------|-----|
-| backend | `pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime` | 5000 | Yes (1x NVIDIA) |
-| frontend | `node:20-alpine` (build) + `nginx:alpine` (serve) | 80 | No |
+| backend | `pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime` | 5000 (host network) | Yes (NVIDIA runtime) |
+| frontend | `node:20-alpine` (build) + `nginx:alpine` (serve) | 80 (host network) | No |
 
 ### Volumes (backend)
 
