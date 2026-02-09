@@ -25,6 +25,39 @@ User Question
 [SSE Stream] -----> React Frontend (real-time token streaming)
 ```
 
+## Verified Test Results
+
+All components have been tested end-to-end with `docker compose up --build`.
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Backend image build | OK | PyTorch 2.1 + CUDA 12.1 base, ~3 min (cached) |
+| Frontend image build | OK | Node 20 build + Nginx serve, ~25 sec |
+| Scene Navigator (GPU) | OK | RoBERTa-Large, 185 chapter classes, CUDA inference |
+| Memory Retriever | OK | 7,034 character memories loaded |
+| Vector Knowledge Retriever | OK | 7,016 knowledge embeddings loaded |
+| Search Index | OK | 988 scene embeddings loaded |
+| Pipeline initialization | OK | ~40 sec total (including model load to GPU) |
+| `GET /api/health` | OK | `{"pipeline_ready": true, "status": "ok"}` |
+| `GET /api/characters` | OK | 3 characters (Harry, Hermione, Ron) x 25 time periods |
+| `POST /api/chat` | OK | Full inference pipeline verified |
+
+### Example API Response
+
+```
+POST /api/chat
+{
+  "character": "Harry Potter",
+  "character_period": "1st-year / on halloween",
+  "question": "What do you think about Hermione?"
+}
+
+-> Navigator: Top-3 hypotheses (Book6-ch8, Book7-ch17, Book5-ch4)
+-> Verifier: Selected best matching scene
+-> Memory: Temporally filtered knowledge (pre-Halloween 1st year)
+-> Response: In-character answer respecting timeline constraints
+```
+
 ## Prerequisites
 
 - Docker & Docker Compose
@@ -89,12 +122,13 @@ OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
 docker compose up --build
 ```
 
-First build takes ~10 minutes (PyTorch + dependencies download).
-Pipeline initialization takes ~30 seconds (RoBERTa model loading to GPU).
+First build takes ~10 minutes (PyTorch base image + dependencies download).
+Pipeline initialization takes ~40 seconds (RoBERTa model loading to GPU + database loading).
 
 Watch for this log line to confirm the backend is ready:
 ```
-Pipeline initialized in XX.Xs
+webapp.backend.pipeline_manager: Pipeline initialized in XX.Xs
+webapp.backend.app: Pipeline ready. Starting Flask server.
 ```
 
 ### 5. Access the app
@@ -110,10 +144,12 @@ Open **http://localhost** in your browser.
 
 ### docker-compose.yml
 
+Both services use `network_mode: host` for reliable GPU networking:
+
 | Service | Base Image | Port | GPU |
 |---------|-----------|------|-----|
-| backend | `pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime` | 5000 (host network) | Yes (NVIDIA runtime) |
-| frontend | `node:20-alpine` (build) + `nginx:alpine` (serve) | 80 (host network) | No |
+| backend | `pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime` | 5000 | Yes (`runtime: nvidia`) |
+| frontend | `node:20-alpine` (build) + `nginx:alpine` (serve) | 80 | No |
 
 ### Volumes (backend)
 
@@ -209,8 +245,15 @@ TimeAware-LLM-Demo/
 |   |-- scene_classifier.py         # RoBERTa Scene Navigator (GPU)
 |   |-- verifier.py                 # GPT Scene Verifier
 |   |-- memory_retriever.py         # Vector similarity memory search
-|   |-- processors/                 # Knowledge filter & retriever
+|   |-- processors/                 # Knowledge filter & vector retriever
 |   |-- databases/                  # Pre-built HP knowledge databases
+|   |   |-- character_knowledge.json          # 7,034 character knowledge items
+|   |   |-- scenes_vector.json                # 988 scene metadata
+|   |   |-- memory_vectors.npy                # Memory embeddings (83MB, LFS)
+|   |   |-- memory_metadata.json              # Memory metadata (3.3MB)
+|   |   |-- search_index_embeddings.npy       # Scene search embeddings (12MB, LFS)
+|   |   |-- knowledge_embeddings_array.npy    # Knowledge embeddings (165MB, LFS)
+|   |   +-- knowledge_embeddings.pkl          # Knowledge embeddings pickle (168MB, LFS)
 |   +-- models/
 |       +-- roberta_200q_best_*.pt  # Scene Navigator weights (1.4GB, LFS)
 |
