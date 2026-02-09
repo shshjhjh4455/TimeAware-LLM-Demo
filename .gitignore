@@ -6,3 +6,8 @@ webapp/frontend/dist/
 .DS_Store
 *.log
 logs/
+
+# Large binary files (hosted on Hugging Face)
+*.npy
+*.pkl
+*.pt

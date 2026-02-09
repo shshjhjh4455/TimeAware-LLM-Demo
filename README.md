@@ -63,8 +63,6 @@ POST /api/chat
 - Docker & Docker Compose
 - NVIDIA GPU with CUDA support + [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
 - OpenAI API key (GPT-5-mini)
-- Git LFS
-
 ## Quick Start
 
 ### 1. Install NVIDIA Container Toolkit (if not installed)
@@ -85,25 +83,23 @@ Verify GPU is accessible from Docker:
 docker run --rm --gpus all nvidia/cuda:12.1.0-base-ubuntu22.04 nvidia-smi
 ```
 
-### 2. Clone with Git LFS
+### 2. Clone and download large files
 
 ```bash
-git lfs install
 git clone https://github.com/shshjhjh4455/TimeAware-LLM-Demo.git
 cd TimeAware-LLM-Demo
-git lfs pull
+bash setup.sh
 ```
 
-Verify LFS files are downloaded (not pointer files):
-```bash
-git lfs ls-files
-# Should show LFS-tracked files:
-#   knowledge_embeddings_array.npy (165MB)
-#   knowledge_embeddings.pkl (168MB)
-#   memory_vectors.npy (83MB)
-#   search_index_embeddings.npy (12MB)
-#   roberta_200q_best_20251010_064944.pt (1.4GB)
-```
+The `setup.sh` script downloads large binary files (~1.8GB total) from [Hugging Face](https://huggingface.co/Kkonjeong/TimeAware-LLM-Demo):
+
+| File | Size |
+|------|------|
+| `knowledge_enriched_rag/databases/knowledge_embeddings.pkl` | 168MB |
+| `knowledge_enriched_rag/databases/knowledge_embeddings_array.npy` | 165MB |
+| `knowledge_enriched_rag/databases/memory_vectors.npy` | 83MB |
+| `knowledge_enriched_rag/databases/search_index_embeddings.npy` | 12MB |
+| `knowledge_enriched_rag/models/roberta_200q_best_20251010_064944.pt` | 1.4GB |
 
 ### 3. Set up environment variables
 
@@ -249,13 +245,13 @@ TimeAware-LLM-Demo/
 |   |-- databases/                  # Pre-built HP knowledge databases
 |   |   |-- character_knowledge.json          # 7,034 character knowledge items
 |   |   |-- scenes_vector.json                # 988 scene metadata
-|   |   |-- memory_vectors.npy                # Memory embeddings (83MB, LFS)
+|   |   |-- memory_vectors.npy                # Memory embeddings (83MB, HF)
 |   |   |-- memory_metadata.json              # Memory metadata (3.3MB)
-|   |   |-- search_index_embeddings.npy       # Scene search embeddings (12MB, LFS)
-|   |   |-- knowledge_embeddings_array.npy    # Knowledge embeddings (165MB, LFS)
-|   |   +-- knowledge_embeddings.pkl          # Knowledge embeddings pickle (168MB, LFS)
+|   |   |-- search_index_embeddings.npy       # Scene search embeddings (12MB, HF)
+|   |   |-- knowledge_embeddings_array.npy    # Knowledge embeddings (165MB, HF)
+|   |   +-- knowledge_embeddings.pkl          # Knowledge embeddings pickle (168MB, HF)
 |   +-- models/
-|       +-- roberta_200q_best_*.pt  # Scene Navigator weights (1.4GB, LFS)
+|       +-- roberta_200q_best_*.pt  # Scene Navigator weights (1.4GB, HF)
 |
 +-- timechara/
     +-- utils.py                    # Character period mapping
@@ -267,7 +263,7 @@ TimeAware-LLM-Demo/
 |-----------|---------|-------------|
 | GPU VRAM | 4GB (RoBERTa-Large) | 8GB+ |
 | RAM | 8GB | 16GB+ |
-| Disk | 4GB (with LFS files) | 4GB |
+| Disk | 4GB (after setup.sh) | 4GB |
 
 ## License
 
