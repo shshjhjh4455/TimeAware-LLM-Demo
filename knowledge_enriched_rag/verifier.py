@@ -7,7 +7,7 @@ Implements 'Evidence Gathering & Verification' from paper (Section 2.2)
 import json
 import logging
 from typing import List, Dict, Any, Tuple
-from openai import OpenAI
+import google.generativeai as genai
 import os
 from dotenv import load_dotenv
 
@@ -32,14 +32,17 @@ class SceneVerifier:
         3. Providing confidence scores and reasoning
     """
 
-    def __init__(self, model: str = "gpt-5-mini"):
+    def __init__(self, model: str = "gemini-2.5-flash"):
         """
         Args:
-            model: LLM model for verification (gpt-4o or gpt-5-mini)
-                   Note: gpt-5-mini only supports default temperature=1.0
+            model: LLM model for verification (gemini-2.5-flash)
         """
-        self.model = model
-        self.client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        self.model_name = model
+        genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+        self.model = genai.GenerativeModel(
+            model_name=self.model_name,
+            system_instruction="You are a meticulous literary analyst and fact-checker. Your task is to evaluate candidate scenes and select the one that best answers the given question. You MUST respond with valid JSON."
+        )
 
     def verify_hypotheses(
         self,
@@ -118,29 +121,21 @@ class SceneVerifier:
         last_exception = None
         for attempt in range(max_retries):
             try:
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "You are a meticulous literary analyst and fact-checker. Your task is to evaluate candidate scenes and select the one that best answers the given question. You MUST respond with valid JSON."
-                        },
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    max_completion_tokens=4000,  
-                    response_format={"type": "json_object"}  # Ensure JSON output
+                response = self.model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=1.0,
+                        max_output_tokens=4000,
+                        response_mime_type="application/json"
+                    )
                 )
 
-                result_text = response.choices[0].message.content
+                result_text = response.text
 
                 # DEBUG: Log actual response
                 if not result_text or result_text.strip() == "":
                     logger.warning(f"Attempt {attempt+1}: Empty response from API!")
                     logger.warning(f"   Response object: {response}")
-                    logger.warning(f"   Choices: {response.choices}")
                     continue
 
                 # Try to parse JSON

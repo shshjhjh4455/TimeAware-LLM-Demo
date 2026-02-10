@@ -7,7 +7,10 @@ torchaudio
 transformers>=4.35.0,<4.40.0
 sentence-transformers
 
-# OpenAI
+# Google Gemini (primary LLM for verifier + response generation)
+google-generativeai>=0.8.0
+
+# OpenAI (used for embeddings in memory_retriever and vector_knowledge_retriever)
 openai
 tiktoken
 

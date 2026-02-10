@@ -21,7 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from openai import OpenAI
+import google.generativeai as genai
 from timechara.utils import preprocess_generation, character_period_harry_potter
 from knowledge_enriched_rag.processors.intelligent_knowledge_filter import IntelligentKnowledgeFilter
 from knowledge_enriched_rag.processors.vector_knowledge_retriever import VectorKnowledgeRetriever
@@ -31,6 +31,9 @@ from knowledge_enriched_rag.memory_retriever import MemoryRetriever
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Configure Gemini API key at module level
+genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
 
 
 # =============================================================================
@@ -593,8 +596,8 @@ class TimeAwareInferencePipeline:
         self.no_external_knowledge = no_external_knowledge  # Disable external knowledge usage
 
         # LLM 설정 (GPT-5 계열)
-        self.chat_model = "gpt-5-mini"       # 내부 reasoning, verifier 등
-        self.generation_model = "gpt-5-mini" # 최종 응답 생성
+        self.chat_model = "gemini-2.5-flash"       # internal reasoning, verifier, etc.
+        self.generation_model = "gemini-2.5-flash" # final response generation
 
         # Navigator Top-k 챕터 개수
         self.top_k_chapters = top_k_chapters
@@ -603,8 +606,8 @@ class TimeAwareInferencePipeline:
         self.log_dir = Path("pipeline_logs")
         self.log_dir.mkdir(exist_ok=True)
 
-        # OpenAI 클라이언트 (thread-safe 호출에서는 새로 생성)
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        # Gemini model instance (thread-safe: GenerativeModel can be shared)
+        self.gemini_model = genai.GenerativeModel(self.generation_model)
 
         # Navigator (공유 인스턴스 허용, "skip"으로 비활성화 가능)
         if navigator == "skip":
@@ -1128,35 +1131,26 @@ If the information is not in the provided context, do not assume or infer from e
         character: str,
     ) -> str:
         """
-        실제 LLM 호출로 캐릭터 응답 생성.
-        - GPT-5 계열 파라미터 사용 (developer role, max_completion_tokens 등)
-        - 간단한 재시도 로직 포함
+        Generate character response via Gemini API call.
+        - Uses Gemini GenerativeModel with generation config
+        - Simple retry logic included
         """
         max_retries = 5
         base_delay = 2
 
         for attempt in range(max_retries):
             try:
-                # build_inference_prompt에서 완성된 프롬프트를 직접 사용
+                generation_config = genai.types.GenerationConfig(
+                    temperature=0.7,
+                    max_output_tokens=8000,
+                )
 
-                thread_safe_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+                response = self.gemini_model.generate_content(
+                    contents=[{'role': 'user', 'parts': [prompt]}],
+                    generation_config=generation_config,
+                )
 
-                if self.generation_model in ["gpt-5", "gpt-5-mini"]:
-                    response = thread_safe_client.chat.completions.create(
-                        model=self.generation_model,
-                        messages=[{"role": "developer", "content": prompt}],
-                        max_completion_tokens=8000,
-                        verbosity="high",
-                        reasoning_effort="minimal",
-                    )
-                else:
-                    response = thread_safe_client.chat.completions.create(
-                        model=self.generation_model,
-                        messages=[{"role": "system", "content": prompt}],
-                        max_completion_tokens=8000,
-                    )
-
-                content = response.choices[0].message.content
+                content = response.text
                 if content:
                     return content.strip()
 
@@ -1180,7 +1174,7 @@ If the information is not in the provided context, do not assume or infer from e
 
                 error_type = type(e).__name__
                 wait = base_delay * (2 ** attempt)
-                if "RateLimit" in error_type or "rate_limit" in str(e).lower():
+                if "RateLimit" in error_type or "rate_limit" in str(e).lower() or "429" in str(e):
                     wait *= 2
                     logger.error(
                         f"RATE LIMIT ERROR on attempt {attempt + 1}/{max_retries}: {e}"
@@ -1215,27 +1209,21 @@ If the information is not in the provided context, do not assume or infer from e
         Streaming version of generate_response.
         Yields chunks of the response as they arrive.
         """
-        thread_safe_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
         try:
-            if self.generation_model in ["gpt-5", "gpt-5-mini"]:
-                stream = thread_safe_client.chat.completions.create(
-                    model=self.generation_model,
-                    messages=[{"role": "developer", "content": prompt}],
-                    max_completion_tokens=8000,
-                    stream=True,
-                )
-            else:
-                stream = thread_safe_client.chat.completions.create(
-                    model=self.generation_model,
-                    messages=[{"role": "system", "content": prompt}],
-                    max_completion_tokens=8000,
-                    stream=True,
-                )
+            generation_config = genai.types.GenerationConfig(
+                temperature=0.7,
+                max_output_tokens=8000,
+            )
+
+            stream = self.gemini_model.generate_content(
+                contents=[{'role': 'user', 'parts': [prompt]}],
+                generation_config=generation_config,
+                stream=True,
+            )
 
             for chunk in stream:
-                if chunk.choices and chunk.choices[0].delta.content:
-                    yield chunk.choices[0].delta.content
+                if chunk.text:
+                    yield chunk.text
 
         except Exception as e:
             logger.error(f"Streaming error: {e}")

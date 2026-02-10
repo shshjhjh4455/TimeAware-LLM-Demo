@@ -9,7 +9,7 @@ import json
 import logging
 import numpy as np
 from typing import List, Dict, Any, Tuple
-from openai import OpenAI
+import google.generativeai as genai
 import os
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,8 @@ class IntelligentKnowledgeFilter:
     """
 
     def __init__(self):
-        self.client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+        self.model = genai.GenerativeModel('gemini-2.5-flash')
 
         # Character-specific knowledge priorities
         self.character_traits = {

@@ -2,7 +2,7 @@
 
 Time-aware character role-playing system that enables LLMs to answer questions as Harry Potter characters while respecting narrative timeline constraints.
 
-The system uses a **Hypothesis-Verification RAG pipeline** -- a RoBERTa-based Scene Navigator predicts candidate chapters, a GPT-powered Verifier selects the correct scene, and a Memory Retriever provides temporally-filtered character knowledge for grounded, in-character responses.
+The system uses a **Hypothesis-Verification RAG pipeline** -- a RoBERTa-based Scene Navigator predicts candidate chapters, a Gemini-powered Verifier selects the correct scene, and a Memory Retriever provides temporally-filtered character knowledge for grounded, in-character responses.
 
 ## Architecture
 
@@ -13,13 +13,13 @@ User Question
 [Scene Navigator]  RoBERTa-Large (GPU) - Top-k chapter prediction
      |
      v
-[Scene Verifier]   GPT-5-mini - Selects best scene from candidates
+[Scene Verifier]   Gemini 2.5 Flash - Selects best scene from candidates
      |                          (runs in parallel with Memory Retriever)
      v
 [Memory Retriever] Vector similarity search - Temporal knowledge filtering
      |
      v
-[Response Generator] GPT-5-mini - Premise-aware, dual-timeline generation
+[Response Generator] Gemini 2.5 Flash - Premise-aware, dual-timeline generation
      |
      v
 [SSE Stream] -----> React Frontend (real-time token streaming)
@@ -62,7 +62,8 @@ POST /api/chat
 
 - Docker & Docker Compose
 - NVIDIA GPU with CUDA support + [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
-- OpenAI API key (GPT-5-mini)
+- Google API key (Gemini 2.5 Flash)
+- OpenAI API key (for embeddings)
 ## Quick Start
 
 ### 1. Install NVIDIA Container Toolkit (if not installed)
@@ -107,10 +108,14 @@ The `setup.sh` script downloads large binary files (~1.8GB total) from [Hugging 
 cp .env.example .env
 ```
 
-Edit `.env` and add your OpenAI API key:
+Edit `.env` and add your API keys:
 ```
+GOOGLE_API_KEY=your_google_api_key_here
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
 ```
+
+- **GOOGLE_API_KEY**: Used by Gemini 2.5 Flash for Scene Verifier and Response Generator.
+- **OPENAI_API_KEY**: Required for OpenAI embedding models in Memory Retriever and Vector Knowledge Retriever.
 
 ### 4. Build and run
 
@@ -239,7 +244,7 @@ TimeAware-LLM-Demo/
 |-- knowledge_enriched_rag/
 |   |-- inference_pipeline.py       # Main RAG pipeline (dual-timeline prompts)
 |   |-- scene_classifier.py         # RoBERTa Scene Navigator (GPU)
-|   |-- verifier.py                 # GPT Scene Verifier
+|   |-- verifier.py                 # Gemini Scene Verifier
 |   |-- memory_retriever.py         # Vector similarity memory search
 |   |-- processors/                 # Knowledge filter & vector retriever
 |   |-- databases/                  # Pre-built HP knowledge databases

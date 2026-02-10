@@ -9,6 +9,7 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # Database paths
 DATABASE_DIR = str(PROJECT_ROOT / "knowledge_enriched_rag" / "databases")
